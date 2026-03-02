@@ -1,0 +1,12 @@
+.DS_Store
+.Rhistory
+.RData
+.Rproj.user/
+*~
+*.swp
+/data/
+figures/
+metadata/
+objects/
+supplementary_tables/
+
