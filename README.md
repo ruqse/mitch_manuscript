@@ -6,7 +6,7 @@
 
 Hana Shabana\*, Faruk Dube\*, Emilia Lahtinen, Emelie Bergman Rothe, Lars Engstrand, Luisa W. Hugerth, Ina Schuppe-Koistinen#, Kenny A. Rodriguez-Wallberg#
 
-\*Equal contribution as first authors; #Equal contribution as senior authors
+\*Equal contribution as first authors; \#Equal contribution as senior authors
 
 ## Description
 
