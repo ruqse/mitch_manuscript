@@ -1,0 +1,43 @@
+MIT License
+
+Copyright (c) 2026 Faruk Dube
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------------------------
+SCOPE
+
+The MIT licence above applies to the SOFTWARE in this repository: everything
+under scripts/.
+
+The figures (figures/), supplementary tables (supplementary_tables/) and
+processed data objects (data/, objects/, metadata/) are research outputs of
+
+  Shabana, H., Dube, F., Lahtinen, E., Bergman Rothe, E., Engstrand, L.,
+  Warchavchik Hugerth, L., Schuppe-Koistinen, I. & Rodriguez-Wallberg, K. A.
+  Multi-omics investigation of metabolomic and microbial features in
+  bacterial vaginosis. npj Womens Health 4, 26 (2026).
+  https://doi.org/10.1038/s44294-026-00163-6
+
+and are made available under the Creative Commons Attribution 4.0
+International Licence (CC BY 4.0), matching the licence of the article:
+https://creativecommons.org/licenses/by/4.0/
+
+Individual-level participant data are NOT covered by either licence and are
+not distributed here. See "Controlled access" in README.md.
