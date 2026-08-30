@@ -1,6 +1,8 @@
 # MiTCH: Microbiome of ITCHing
 
-Analysis code and processed data for the MiTCH study of bacterial vaginosis (BV).
+Multi-omics integration of metagenomic, metabolomic and *Gardnerella* pangenomic
+data in bacterial vaginosis (BV). Analysis code and processed data for the MiTCH
+study.
 
 ## Publication
 
