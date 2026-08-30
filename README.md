@@ -82,8 +82,11 @@ what is removed and why.
 │   ├── 01_MOFA2_integration.R                MOFA2 factor analysis
 │   ├── 02_genome_metabolome.R                genome-metabolome integration, Figure 7
 │   ├── make_public_objects.R                 de-identification (authors only)
-│   └── qa/{scan_pii.sh, scan_rda.R}          privacy scanners
-├── figures/                                  Figure1-7, FigureS1
+│   └── qa/                                   privacy scanners
+│       ├── scan_pii.sh                       static text scan
+│       ├── scan_rda.R                        deep object scan
+│       └── scan_values.R                     value-level scan (authors)
+├── figures/                                  Figure1-7, FigureS1 (assembled; see below)
 └── supplementary_tables/                     Table_S1-S13
 ```
 
@@ -146,6 +149,13 @@ component stores the QR decomposition of that conditioning matrix and would allo
 the withheld values to be reconstructed. It ships the quantity the analysis uses,
 `dbrda_cond_adjR2` = 0.0854, together with the permutation test `anova_cond`.
 
+Of the published figures, only `Figure1.png` is written directly by a script
+(`00_data_processing_and_DIABLO.R`). `02_genome_metabolome.R` writes the Figure 7
+panels (`Figure7a_procrustes`, `Figure7b_varpart`, `Figure7c_heatmap` and a
+composite), and `01_MOFA2_integration.R` writes MOFA2 panels; these generated
+filenames are gitignored. The final `Figure2`-`Figure7` and `FigureS1` committed
+here were assembled from those panels for publication.
+
 Values reproduced from this repository: Mantel *r* = 0.148, *p* = 0.034;
 Procrustes *r* = 0.385, *p* = 0.018; db-RDA conditioned adjusted *R*² = 0.085.
 
@@ -157,13 +167,20 @@ Rscript scripts/qa/scan_rda.R    # deep scan inside .rda, .rds and .xlsx
 Rscript scripts/qa/scan_values.R # value-level scan (authors only)
 ```
 
-`.gitignore` guards paths, not contents, so `scan_rda.R` walks every nested
-object at any depth, including S4 slots, model internals and attributes.
-Name-based scanning cannot catch a withheld variable whose column has been
-renamed, so `scan_values.R` additionally compares the actual withheld vectors
-against every numeric vector in the publishable objects, matching exact values
-and perfect linear rescales. It requires the private inputs and therefore skips
-automatically anywhere they are absent, including CI.
+`.gitignore` guards paths, not contents, so `scan_rda.R` recurses through lists,
+S4 slots, attributes and environments, to a depth limit of 12, matching withheld
+variable names against names, dimnames and factor levels.
+
+Name matching cannot catch a renamed column, so `scan_values.R` compares the
+actual withheld vectors against the numeric vectors in the publishable objects,
+including individual matrix columns, matching exact values, sorted values and
+perfect linear rescales. It needs the private inputs and therefore skips
+automatically wherever they are absent, including in CI.
+
+Neither scanner is a proof of absence. They are a regression guard against the
+specific failure modes found while preparing this release: a clinical table
+embedded in a results object, a conditioning matrix retained inside a model fit,
+and values surviving under a renamed column or an attribute.
 
 The first two run in `.github/workflows/privacy-check.yml`; all three run as a
 pre-commit hook:

@@ -54,7 +54,28 @@ collect <- function(o, path, d = 0L) {
       try(collect(methods::slot(o, sn), paste0(path, "@", sn), d + 1L), silent = TRUE)
     return(invisible(NULL))
   }
-  if (is.numeric(o) && length(o) >= 20) vecs[[path]] <<- as.numeric(o)
+  if (is.environment(o)) {
+    # A formula, lm or ggplot saved from a scope holding the clinical table
+    # carries it in .Environment; without this branch that is invisible.
+    # globalenv/baseenv/namespaces are session state and must not be walked.
+    if (identical(o, globalenv()) || identical(o, baseenv()) ||
+        identical(o, emptyenv()) || environmentName(o) != "" || isNamespace(o))
+      return(invisible(NULL))
+    for (n in ls(o, all.names = TRUE))
+      try(collect(get(n, envir = o), paste0(path, "<env>$", n), d + 1L), silent = TRUE)
+    return(invisible(NULL))
+  }
+  if (is.matrix(o) && is.numeric(o)) {
+    # A matrix must be split: flattening it hides a renamed clinical column.
+    cn <- colnames(o); rn <- rownames(o)
+    if (ncol(o) >= 1 && nrow(o) >= 20)
+      for (j in seq_len(ncol(o)))
+        vecs[[sprintf("%s[,%s]", path, if (!is.null(cn)) cn[j] else j)]] <<- as.numeric(o[, j])
+    if (nrow(o) >= 1 && ncol(o) >= 20)
+      for (i in seq_len(nrow(o)))
+        vecs[[sprintf("%s[%s,]", path, if (!is.null(rn)) rn[i] else i)]] <<- as.numeric(o[i, ])
+  }
+  if (is.numeric(o) && !is.matrix(o) && length(o) >= 20) vecs[[path]] <<- as.numeric(o)
   if (is.data.frame(o)) for (cn in colnames(o)) {
     v <- o[[cn]]; if (is.numeric(v) && length(v) >= 20) vecs[[paste0(path, "$", cn)]] <<- as.numeric(v)
   }

@@ -1,3 +1,11 @@
+> These legends reproduce the published Supplementary Information verbatim.
+>
+> One clarification for readers of this repository: the published Table S12
+> legend describes factors as columns and views as rows. In the shipped
+> `Table_S12.xlsx` the orientation is the transpose — rows are Factor1–Factor7
+> plus a total, and columns are the four omics views. The values are
+> unaffected. The file is left as published rather than altered here.
+
 # Supplementary Table Legends
 
 Column abbreviations used across tables: **log2FC**, log2 fold-change (BV vs control; positive = enriched
@@ -71,6 +79,7 @@ within each omics view (rows).
 Feature; Factor1–Factor7; Max_Abs_Loading; DIABLO_Overlap (whether the feature was also selected by
 DIABLO).
 
-**Table S14. Gene–metabolite correlations (Gardnerella shell genome).** Spearman correlations between
-shell-genome gene clusters (15–95% prevalence) and metabolites. Columns: Gene_ID; Metabolite; rho
+**Gene–metabolite correlations.** Not a numbered Supplementary Table in the published
+article. The full matrix is published as Zenodo Supplementary Data 4
+(https://doi.org/10.5281/zenodo.20734655). Columns: Gene_ID; Metabolite; rho
 (Spearman coefficient); pvalue; Gene_Name; Gene_Annotation; qvalue (BH-adjusted).

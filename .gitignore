@@ -31,6 +31,7 @@ objects/bv_path_res.rda
 # Runtime outputs of scripts/02_*: the 39 MB correlation matrix is published as
 # Zenodo Supplementary Data 4 (doi.org/10.5281/zenodo.20734655), not here.
 supplementary_tables/gene_metabolite_correlations.csv
+supplementary_tables/gene_metabolite_correlations_q0.1.xlsx
 
 # ---------------------------------------------------------------------------
 # FIGURES - allowlist, not denylist

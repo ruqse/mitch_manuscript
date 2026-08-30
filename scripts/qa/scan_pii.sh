@@ -18,7 +18,10 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # vaginal pH + antibiotic + BV history + age"). Cohort variables that the
 # article does not mention are guarded in the private authoring repository's
 # copy of this scanner, so that this public file does not enumerate them.
-BANNED='Vaginal_pH|BV_History|pH_z|Age_z|Group_BV|Base_Sample_ID|personnummer|date_of_birth'
+# Word-anchored so 'Age' does not match 'Average'/'page'. Aligned with the
+# BANNED list in scan_rda.R; Group_BV is excluded there and here because the
+# BV/Control label is published.
+BANNED='Vaginal[_ ]?pH|BV[_ ]?History|pH_z|Age_z|Base_Sample_ID|Sample_ID|(^|[^A-Za-z0-9_])(Age|Antibiotic)([^A-Za-z0-9_]|$)|personnummer|date_of_birth'
 # Secrets / credentials.
 # Accept ':' as well as '=': YAML config files write "API_KEY : value".
 SECRETS='BEGIN [A-Z ]*PRIVATE KEY|api[_-]?key[[:space:]]*[:=]|password[[:space:]]*[:=]|secret[[:space:]]*[:=]|token[[:space:]]*[:=][[:space:]]*[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}'
@@ -29,7 +32,10 @@ EMAILS='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 LOCALPATH='/Users/[a-zA-Z]|/home/[a-zA-Z]|C:\\\\Users|/crex/|/gorilla/|/proj/[a-z]|/sw/data/'
 
 # Scripts legitimately reference these column names in code; data files must not.
-CODE_EXEMPT='^scripts/.*\.(R|sh)$|^README\.md$|^\.gitignore$|^\.githooks/|^\.github/'
+# Markdown documentation names these variables in prose by design (legends,
+# README, controlled-access notes). The risk is tabular data, so .md is exempt
+# from the column-name check but still subject to the secret/path/email checks.
+CODE_EXEMPT='^scripts/.*\.(R|sh)$|\.md$|^\.gitignore$|^\.githooks/|^\.github/'
 # The QA tooling and the hook contain these patterns as literals by design, so
 # they are exempt from the secret / path / email checks (not from BANNED).
 SELF_EXEMPT='^scripts/qa/|^\.githooks/'
@@ -44,8 +50,19 @@ n=0
 while IFS= read -r f; do
   [ -f "$f" ] || continue
   # skip binaries
-  file --mime "$f" 2>/dev/null | grep -q 'charset=binary' && continue
-  [ "$(wc -c <"$f")" -gt 5242880 ] && continue
+  # Binaries that layer 2 does not cover (it handles .rda/.rds/.xlsx) are
+  # scanned through `strings` rather than skipped outright.
+  if file --mime "$f" 2>/dev/null | grep -q 'charset=binary'; then
+    case "$f" in
+      *.rda|*.RData|*.rds|*.xlsx) continue ;;
+      *) if strings "$f" 2>/dev/null | grep -qiE "$BANNED"; then
+           report "BINARY" "$f (clinical name found in binary content)"
+         fi
+         continue ;;
+    esac
+  fi
+  # Raised from 5 MB: the previous cap silently skipped any larger table.
+  [ "$(wc -c <"$f")" -gt 268435456 ] && { report "SKIP" "$f (>256MB, not scanned)"; continue; }
   n=$((n+1))
 
   if ! printf '%s' "$f" | grep -qE "$CODE_EXEMPT"; then

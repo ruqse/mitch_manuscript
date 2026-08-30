@@ -30,7 +30,8 @@
 #
 # On `Group` (BV/Control), stated precisely: the article's Supplementary Data 3 /
 # Table S4 already publishes Sample -> BV_status, but only for the 53 samples
-# carrying Gardnerella MAGs (35 of them in-cohort) -- NOT for all 111. So the
+# carrying Gardnerella MAGs (35 in-cohort MAGs, from 33 distinct samples) -- NOT
+# for all 111. So the
 # 111-row Sample -> Group table shipped here is broader than that precedent.
 # It is retained because Group is the study's primary grouping variable, is
 # recomputable from the taxonomy matrix shipped in objects/multiomics_views.rda
