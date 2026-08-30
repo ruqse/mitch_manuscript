@@ -22,8 +22,8 @@
 #   - figures/MOFA2_metabolomics_neg.png
 #   - figures/MOFA2_pathways.png
 #   - figures/MOFA2_taxonomy.png
-#   - supplementary_tables/Table_S9.xlsx  (variance explained)
-#   - supplementary_tables/Table_S10.xlsx (complete feature loadings)
+#   - supplementary_tables/Table_S12.xlsx  (variance explained)
+#   - supplementary_tables/Table_S13.xlsx (complete feature loadings)
 #
 # Key Features:
 #   1. Your exact data preprocessing pipeline
@@ -53,8 +53,14 @@ library(openxlsx)  # For Excel export of supplementary tables
 
 # Load your data with 4 views: metabolomics_pos, metabolomics_neg, pathways, taxonomy
 load("objects/multiomics_views.rda")  # Assumes X contains the 4 views
-load("metadata/sample_metadata.rda")
 load("objects/group_labels.rda")
+
+# Metadata is loaded through the shared accessor: it prefers the private
+# participant-level file when available and otherwise uses the public
+# de-identified file (Sample + Group only) shipped with this repository.
+source("scripts/_metadata_access.R")
+meta_data    <- load_sample_metadata()
+HAS_CLINICAL <- has_clinical(meta_data)
 
 # Verify data structure
 cat("Data structure overview:\n")
@@ -84,7 +90,11 @@ if(!all(meta_data_aligned$Sample == sample_order)) {
 
 print("Sample alignment verified. Metadata summary:")
 print(table(meta_data_aligned$Group))
-print(summary(meta_data_aligned[, c("Age", "Vaginal_pH")]))
+if (HAS_CLINICAL) {
+  print(summary(meta_data_aligned[, c("Age", "Vaginal_pH")]))
+} else {
+  skip_clinical("Age / vaginal pH summary")
+}
 
 # Create comprehensive sample metadata (ENHANCED)
 sample_metadata <- meta_data_aligned
@@ -526,6 +536,10 @@ classify_enhanced_microbiome_states <- function(MOFAobject, sample_metadata) {
 
 # Enhanced classification analysis with 4 views
 run_enhanced_4view_classification <- function(MOFAobject, sample_metadata) {
+
+  # Uses Age, Vaginal_pH and BV_History as predictors; withheld in the public release.
+  if (!has_clinical(sample_metadata))
+    return(skip_clinical("Enhanced 4-view classification analysis"))
 
   cat("\n=== ENHANCED 4-VIEW CLASSIFICATION ANALYSIS ===\n")
 
@@ -1046,6 +1060,10 @@ create_mofa_loadings_figure <- function(
 # Enhanced pH analysis with metabolomics integration
 analyze_enhanced_ph_patterns <- function(sample_metadata, MOFAobject) {
 
+  # Requires Vaginal_pH; withheld in the public release.
+  if (!has_clinical(sample_metadata))
+    return(skip_clinical("Enhanced vaginal pH pattern analysis"))
+
   cat("\n=== ENHANCED pH PATTERNS WITH MULTI-OMICS ===\n")
 
   # Basic pH analysis by clinical diagnosis
@@ -1439,9 +1457,14 @@ W_tax <- MOFA2::get_weights(MOFAobject, views = "taxonomy", as.data.frame = FALS
 # Correlate factors with covariates (BV coded 0/1; add pH, etc.)
 covar_df <- data.frame(
   sample = rownames(Z),
-  BV = as.numeric(Y_aligned[rownames(Z)] == "BV"),
-  Vaginal_pH = sample_metadata_aligned[rownames(Z), "Vaginal_pH"]
+  BV = as.numeric(Y_aligned[rownames(Z)] == "BV")
 )
+# Vaginal_pH is withheld in the public release; included only when available.
+if (HAS_CLINICAL) {
+  covar_df$Vaginal_pH <- sample_metadata_aligned[rownames(Z), "Vaginal_pH"]
+} else {
+  skip_clinical("factor-vs-pH correlation")
+}
 rownames(covar_df) <- covar_df$sample; covar_df$sample <- NULL
 
 MOFA2::correlate_factors_with_covariates(
@@ -1637,47 +1660,47 @@ header_style <- openxlsx::createStyle(
 
 # --- Table S9 Workbook (Variance Explained) ---
 wb_s9 <- openxlsx::createWorkbook()
-openxlsx::addWorksheet(wb_s9, "Table_S9_Variance")
+openxlsx::addWorksheet(wb_s9, "Table_S12_Variance")
 
 # Add title
-openxlsx::writeData(wb_s9, "Table_S9_Variance",
-                    "Table S9. Variance explained (%) by MOFA2 factors across omics views",
+openxlsx::writeData(wb_s9, "Table_S12_Variance",
+                    "Table S12. Variance explained (%) by MOFA2 factors across omics views",
                     startRow = 1, startCol = 1)
 
 # Add data
-openxlsx::writeData(wb_s9, "Table_S9_Variance", table_s9, startRow = 3)
+openxlsx::writeData(wb_s9, "Table_S12_Variance", table_s9, startRow = 3)
 
 # Style header
-openxlsx::addStyle(wb_s9, "Table_S9_Variance", header_style,
+openxlsx::addStyle(wb_s9, "Table_S12_Variance", header_style,
                    rows = 3, cols = 1:ncol(table_s9), gridExpand = TRUE)
 
 # Auto-width columns
-openxlsx::setColWidths(wb_s9, "Table_S9_Variance",
+openxlsx::setColWidths(wb_s9, "Table_S12_Variance",
                        cols = 1:ncol(table_s9), widths = "auto")
 
-output_s9 <- "supplementary_tables/Table_S9.xlsx"
+output_s9 <- "supplementary_tables/Table_S12.xlsx"
 openxlsx::saveWorkbook(wb_s9, output_s9, overwrite = TRUE)
 
 # --- Table S10 Workbook (Complete Loadings) ---
 wb_s10 <- openxlsx::createWorkbook()
-openxlsx::addWorksheet(wb_s10, "Table_S10_Loadings")
+openxlsx::addWorksheet(wb_s10, "Table_S13_Loadings")
 
 # Add title
-openxlsx::writeData(wb_s10, "Table_S10_Loadings",
-                    "Table S10. Complete MOFA2 factor loadings for all features",
+openxlsx::writeData(wb_s10, "Table_S13_Loadings",
+                    "Table S13. Complete MOFA2 factor loadings for all features",
                     startRow = 1, startCol = 1)
 
 # Add data
-openxlsx::writeData(wb_s10, "Table_S10_Loadings", table_s10, startRow = 3)
+openxlsx::writeData(wb_s10, "Table_S13_Loadings", table_s10, startRow = 3)
 
 # Style header
-openxlsx::addStyle(wb_s10, "Table_S10_Loadings", header_style,
+openxlsx::addStyle(wb_s10, "Table_S13_Loadings", header_style,
                    rows = 3, cols = 1:ncol(table_s10), gridExpand = TRUE)
 
 # Conditional formatting for DIABLO overlap
 diablo_style <- openxlsx::createStyle(fgFill = "#FFFACD")  # Light yellow
 openxlsx::conditionalFormatting(
-  wb_s10, "Table_S10_Loadings",
+  wb_s10, "Table_S13_Loadings",
   cols = 1:ncol(table_s10),
   rows = 4:(nrow(table_s10) + 3),
   rule = '$N4="Yes"',
@@ -1686,10 +1709,10 @@ openxlsx::conditionalFormatting(
 )
 
 # Auto-width columns
-openxlsx::setColWidths(wb_s10, "Table_S10_Loadings",
+openxlsx::setColWidths(wb_s10, "Table_S13_Loadings",
                        cols = 1:ncol(table_s10), widths = "auto")
 
-output_s10 <- "supplementary_tables/Table_S10.xlsx"
+output_s10 <- "supplementary_tables/Table_S13.xlsx"
 openxlsx::saveWorkbook(wb_s10, output_s10, overwrite = TRUE)
 
 cat(sprintf("\n=== SUPPLEMENTARY TABLES SAVED ===\n"))

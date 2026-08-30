@@ -22,7 +22,7 @@
 #   - figures/Figure7a_procrustes.pdf/png     Individual panels
 #   - figures/Figure7b_varpart.pdf/png
 #   - figures/Figure7c_heatmap.pdf/png
-#   - supplementary_tables/Table_S11.xlsx   Gene-metabolite correlations (q<0.1)
+#   - supplementary_tables/gene_metabolite_correlations_q0.1.xlsx  (q<0.1 subset)
 #   - supplementary_tables/gene_metabolite_correlations.csv  Full results
 #
 # ============================================================================
@@ -34,13 +34,15 @@
 # Set to FALSE to use cached .rda files when available
 FORCE_RECOMPUTE <- FALSE
 
-# Cache file path
-CACHE_FILE <- "objects/genome_metabolome_results.rda"
+# Cache file path. The private cache is used when present (authors); the public
+# de-identified cache shipped with this repository is the fallback.
+CACHE_FILE        <- "objects/genome_metabolome_results.rda"
+CACHE_FILE_PUBLIC <- "objects/genome_metabolome_results_public.rda"
 
 # Helper function to check if cache exists and is valid
 use_cache <- function() {
     if (FORCE_RECOMPUTE) return(FALSE)
-    if (!file.exists(CACHE_FILE)) return(FALSE)
+    if (!file.exists(CACHE_FILE) && !file.exists(CACHE_FILE_PUBLIC)) return(FALSE)
     return(TRUE)
 }
 
@@ -75,8 +77,13 @@ suppressPackageStartupMessages({
   library(openxlsx)
 })
 load("objects/multiomics_views.rda")
-# load meta data
-load("metadata/sample_metadata.rda")
+
+# Metadata is loaded through the shared accessor: it prefers the private
+# participant-level file when available and otherwise uses the public
+# de-identified file (Sample + Group only) shipped with this repository.
+source("scripts/_metadata_access.R")
+meta_data    <- load_sample_metadata()
+HAS_CLINICAL <- has_clinical(meta_data)
 # Read the gene presence/absence matrix
 gene_matrix <- read.table("data/gardnerella_gene_presence_absence_binary.tsv",
                          header = TRUE,
@@ -123,19 +130,15 @@ for(i in 1:length(sample_names)) {
     matched_row$Base_Sample_ID <- base_id
     matched_list[[i]] <- matched_row
   } else {
-    # Create placeholder matching ACTUAL meta_data structure
-    placeholder_row <- data.frame(
-      Sample_ID = NA_character_,
-      Sample = base_id,
-      Group = factor(NA, levels = levels(meta_data$Group)),
-      Vaginal_pH = NA_real_,
-      Age = NA_real_,
-      Antibiotic = factor(NA, levels = levels(meta_data$Antibiotic)),
-      BV_History = factor(NA, levels = levels(meta_data$BV_History)),
-      MAG_Name = sample_name,
-      Base_Sample_ID = base_id,
-      stringsAsFactors = FALSE
-    )
+    # Create an all-NA placeholder derived from the ACTUAL meta_data structure.
+    # Deriving the columns (rather than hard-coding them) keeps this working
+    # against both the private participant-level metadata and the public
+    # de-identified file, which has fewer columns.
+    placeholder_row <- meta_data[NA_integer_, , drop = FALSE]
+    rownames(placeholder_row) <- NULL
+    placeholder_row$Sample         <- base_id
+    placeholder_row$MAG_Name       <- sample_name
+    placeholder_row$Base_Sample_ID <- base_id
     matched_list[[i]] <- placeholder_row
   }
 }
@@ -299,13 +302,109 @@ metab_variance <- apply(metab_matched, 1, var)
 cat("Sample variance check:\n")
 cat("  Gene matrix - samples with zero variance:", sum(gene_variance == 0), "\n")
 cat("  Metabolome - samples with zero variance:", sum(metab_variance == 0), "\n")
+# ============================================================
+# ANNOTATED PANGENOME GENE MATRIX
+#
+# Built before the cache branch below, because it is required BOTH by the
+# recompute path and by the downstream gene-prevalence sections that run
+# after it. Building it inside the recompute branch alone left it undefined
+# whenever cached results were loaded.
+#
+# Depends only on objects defined above: filtered_mags, sample_mag_map,
+# matched_samples, metab_matched.
+# ============================================================
+# ### functional annotations for pangenome gene clusters
+# Step 1: Load Annotated Gene Matrix
+# ============================================================
+# LOAD PANAROO OUTPUT WITH ANNOTATIONS
+# ============================================================
+
+library(tidyverse)
+
+# Load Panaroo gene presence/absence with annotations
+panaroo_file <- "data/gardnerella_gene_presence_absence.csv"
+panaroo_data <- read.csv(panaroo_file, check.names = FALSE)
+
+cat("Panaroo output dimensions:", nrow(panaroo_data), "genes ×", ncol(panaroo_data), "columns\n")
+cat("First 3 columns:", paste(colnames(panaroo_data)[1:3], collapse = ", "), "\n")
+
+# Extract annotation columns
+gene_annotations <- panaroo_data %>%
+    dplyr::select(Gene, `Non-unique Gene name`, Annotation) %>%
+    dplyr::rename(Gene_ID = Gene,
+           Gene_Name = `Non-unique Gene name`,
+           Gene_Annotation = Annotation)
+
+# Preview annotations
+cat("\nSample gene annotations:\n")
+print(head(gene_annotations, 10))
+
+# Extract presence/absence matrix (columns 4 onwards are MAGs)
+mag_columns <- colnames(panaroo_data)[4:ncol(panaroo_data)]
+presence_absence_raw <- panaroo_data[, mag_columns]
+
+# Convert to binary: non-empty = 1, empty = 0
+gene_matrix_annotated <- as.data.frame(
+    apply(presence_absence_raw, 2, function(x) as.integer(x != "" & !is.na(x)))
+)
+
+# Add gene IDs as rownames
+rownames(gene_matrix_annotated) <- panaroo_data$Gene
+
+cat("\nAnnotated gene matrix dimensions:",
+    nrow(gene_matrix_annotated), "genes ×",
+    ncol(gene_matrix_annotated), "MAGs\n")
+
+# Verify it matches our filtered MAGs
+cat("MAGs in annotated matrix:", ncol(gene_matrix_annotated), "\n")
+cat("MAGs in filtered metadata:", length(filtered_mags), "\n")
+# #### Step 2: Subset and Aggregate to Sample Level (Same as Before)
+# ============================================================
+# SUBSET TO FILTERED MAGS AND AGGREGATE BY SAMPLE
+# ============================================================
+
+# Subset to 35 filtered MAGs
+gene_matrix_filt <- gene_matrix_annotated[, colnames(gene_matrix_annotated) %in% filtered_mags]
+
+cat("Filtered to", ncol(gene_matrix_filt), "MAGs\n")
+
+# Transpose: rows = MAGs, columns = genes
+gene_matrix_t <- t(gene_matrix_filt)
+
+# Add sample IDs
+gene_df <- as.data.frame(gene_matrix_t)
+gene_df$MAG_Name <- rownames(gene_df)
+gene_df <- gene_df %>%
+    left_join(sample_mag_map, by = "MAG_Name")
+
+# Aggregate by sample (union of gene presence)
+gene_by_sample_annotated <- gene_df %>%
+    dplyr::select(-MAG_Name) %>%
+    group_by(Base_Sample_ID) %>%
+    summarise(across(everything(), max)) %>%
+    column_to_rownames("Base_Sample_ID")
+
+# Reorder to match metabolomics
+gene_by_sample_annotated <- gene_by_sample_annotated[matched_samples, ]
+
+cat("Sample-level annotated gene matrix:",
+    nrow(gene_by_sample_annotated), "samples ×",
+    ncol(gene_by_sample_annotated), "genes\n")
+
+# Verify alignment
+stopifnot(identical(rownames(gene_by_sample_annotated), rownames(metab_matched)))
+cat("✓ Sample order verified\n")
+
+
 
 # ============================================================
 # CHECK FOR CACHED RESULTS
 # ============================================================
 if (use_cache()) {
-    cat("\n>>> LOADING CACHED RESULTS from", CACHE_FILE, "<<<\n")
-    load(CACHE_FILE)
+    cat("\n>>> LOADING CACHED RESULTS <<<\n")
+    # Prefers the private cache; falls back to the public de-identified cache,
+    # in which `dbrda_cond` is replaced by the scalar `dbrda_cond_adjR2`.
+    load_genome_metabolome_cache(environment())
     cat("    Cached objects loaded successfully.\n\n")
 
     # Print summary of cached results
@@ -325,7 +424,12 @@ if (use_cache()) {
     cat("db-RDA RESULTS (from cache)\n")
     cat("============================================================\n")
     cat("Unconditioned adj R²:", round(RsquareAdj(dbrda_uncond)$adj.r.squared, 4), "\n")
-    cat("Conditioned adj R²:", round(RsquareAdj(dbrda_cond)$adj.r.squared, 4), "\n")
+    # The fitted `dbrda_cond` object is withheld from the public release: its
+    # $pCCA$QR component stores the QR decomposition of the conditioning matrix
+    # (pH_z, Age_z, Antibiotic, BV_History), from which the raw participant
+    # values could be reconstructed. The public cache ships the scalar instead.
+    cond_adj <- if (exists("dbrda_cond")) RsquareAdj(dbrda_cond)$adj.r.squared else dbrda_cond_adjR2
+    cat("Conditioned adj R²:", round(cond_adj, 4), "\n")
 
     cat("\n============================================================\n")
     cat("CORRELATION RESULTS (from cache)\n")
@@ -608,87 +712,6 @@ print(top_hits)
 # Uncomment the line below to regenerate locally:
 # write.csv(cor_results, "gene_metabolite_correlations.csv", row.names = FALSE)
 cat("\nFull correlation results available on Zenodo (see README)\n")
-# ### functional annotations for pangenome gene clusters
-# Step 1: Load Annotated Gene Matrix
-# ============================================================
-# LOAD PANAROO OUTPUT WITH ANNOTATIONS
-# ============================================================
-
-library(tidyverse)
-
-# Load Panaroo gene presence/absence with annotations
-panaroo_file <- "data/gardnerella_gene_presence_absence.csv"
-panaroo_data <- read.csv(panaroo_file, check.names = FALSE)
-
-cat("Panaroo output dimensions:", nrow(panaroo_data), "genes ×", ncol(panaroo_data), "columns\n")
-cat("First 3 columns:", paste(colnames(panaroo_data)[1:3], collapse = ", "), "\n")
-
-# Extract annotation columns
-gene_annotations <- panaroo_data %>%
-    dplyr::select(Gene, `Non-unique Gene name`, Annotation) %>%
-    dplyr::rename(Gene_ID = Gene,
-           Gene_Name = `Non-unique Gene name`,
-           Gene_Annotation = Annotation)
-
-# Preview annotations
-cat("\nSample gene annotations:\n")
-print(head(gene_annotations, 10))
-
-# Extract presence/absence matrix (columns 4 onwards are MAGs)
-mag_columns <- colnames(panaroo_data)[4:ncol(panaroo_data)]
-presence_absence_raw <- panaroo_data[, mag_columns]
-
-# Convert to binary: non-empty = 1, empty = 0
-gene_matrix_annotated <- as.data.frame(
-    apply(presence_absence_raw, 2, function(x) as.integer(x != "" & !is.na(x)))
-)
-
-# Add gene IDs as rownames
-rownames(gene_matrix_annotated) <- panaroo_data$Gene
-
-cat("\nAnnotated gene matrix dimensions:",
-    nrow(gene_matrix_annotated), "genes ×",
-    ncol(gene_matrix_annotated), "MAGs\n")
-
-# Verify it matches our filtered MAGs
-cat("MAGs in annotated matrix:", ncol(gene_matrix_annotated), "\n")
-cat("MAGs in filtered metadata:", length(filtered_mags), "\n")
-# #### Step 2: Subset and Aggregate to Sample Level (Same as Before)
-# ============================================================
-# SUBSET TO FILTERED MAGS AND AGGREGATE BY SAMPLE
-# ============================================================
-
-# Subset to 35 filtered MAGs
-gene_matrix_filt <- gene_matrix_annotated[, colnames(gene_matrix_annotated) %in% filtered_mags]
-
-cat("Filtered to", ncol(gene_matrix_filt), "MAGs\n")
-
-# Transpose: rows = MAGs, columns = genes
-gene_matrix_t <- t(gene_matrix_filt)
-
-# Add sample IDs
-gene_df <- as.data.frame(gene_matrix_t)
-gene_df$MAG_Name <- rownames(gene_df)
-gene_df <- gene_df %>%
-    left_join(sample_mag_map, by = "MAG_Name")
-
-# Aggregate by sample (union of gene presence)
-gene_by_sample_annotated <- gene_df %>%
-    dplyr::select(-MAG_Name) %>%
-    group_by(Base_Sample_ID) %>%
-    summarise(across(everything(), max)) %>%
-    column_to_rownames("Base_Sample_ID")
-
-# Reorder to match metabolomics
-gene_by_sample_annotated <- gene_by_sample_annotated[matched_samples, ]
-
-cat("Sample-level annotated gene matrix:",
-    nrow(gene_by_sample_annotated), "samples ×",
-    ncol(gene_by_sample_annotated), "genes\n")
-
-# Verify alignment
-stopifnot(identical(rownames(gene_by_sample_annotated), rownames(metab_matched)))
-cat("✓ Sample order verified\n")
 # #### Step 3: Identify BV-Relevant Genes in Pangenome
 # ============================================================
 # FIND BV-RELEVANT GENES IN THE PANGENOME
@@ -882,8 +905,12 @@ cat("    Future runs will load cached results (set FORCE_RECOMPUTE <- TRUE to re
 
 # --- SUPPLEMENTARY TABLE S11: Gene-metabolite correlations (FDR q < 0.1) ---
 cor_results_lessq0_1 <- cor_results_ann %>% dplyr::filter(qvalue < 0.1)
-openxlsx::write.xlsx(cor_results_lessq0_1, file = "supplementary_tables/Table_S11.xlsx")
-cat("Saved: supplementary_tables/Table_S11.xlsx (", nrow(cor_results_lessq0_1), "rows, q < 0.1)\n")
+# NOTE: this table is not a numbered Supplementary Table in the published
+# article; the full matrix is Zenodo Supplementary Data 4. Writing it as
+# "Table_S11.xlsx" would overwrite the published Table S11 (DIABLO loadings).
+openxlsx::write.xlsx(cor_results_lessq0_1,
+                     file = "supplementary_tables/gene_metabolite_correlations_q0.1.xlsx")
+cat("Saved: supplementary_tables/gene_metabolite_correlations_q0.1.xlsx (", nrow(cor_results_lessq0_1), "rows, q < 0.1)\n")
 
 # Full correlation results (large file, also deposited on Zenodo)
 write.csv(cor_results_ann, file = "supplementary_tables/gene_metabolite_correlations.csv",
@@ -1121,15 +1148,17 @@ color_control <- "#388ECC"  # Blue for Control
 cat("Creating Panel A: Procrustes...\n")
 
 # Reshape data for proper legend handling
+# dplyr:: qualified: vegan/MASS mask select() and rename() depending on
+# package load order, which otherwise fails here with "unused arguments".
 procrustes_gene <- procrustes_coords %>%
-    select(Sample, Gene_PC1, Gene_PC2, Group) %>%
-    mutate(DataType = "Gene PCoA") %>%
-    rename(PC1 = Gene_PC1, PC2 = Gene_PC2)
+    dplyr::select(Sample, Gene_PC1, Gene_PC2, Group) %>%
+    dplyr::mutate(DataType = "Gene PCoA") %>%
+    dplyr::rename(PC1 = Gene_PC1, PC2 = Gene_PC2)
 
 procrustes_metab <- procrustes_coords %>%
-    select(Sample, Metab_PC1, Metab_PC2, Group) %>%
-    mutate(DataType = "Metabolome PCoA") %>%
-    rename(PC1 = Metab_PC1, PC2 = Metab_PC2)
+    dplyr::select(Sample, Metab_PC1, Metab_PC2, Group) %>%
+    dplyr::mutate(DataType = "Metabolome PCoA") %>%
+    dplyr::rename(PC1 = Metab_PC1, PC2 = Metab_PC2)
 
 procrustes_long <- bind_rows(procrustes_gene, procrustes_metab)
 procrustes_long$DataType <- factor(procrustes_long$DataType,
@@ -1162,7 +1191,7 @@ panel_a <- ggplot() +
         plot.title = element_text(face = "bold", size = 14, hjust = 0),
         legend.position = "bottom",
         legend.box = "horizontal",
-        legend.margin = margin(t = 0, b = 0),
+        legend.margin = ggplot2::margin(t = 0, b = 0),
         legend.spacing.x = unit(0.3, "cm"),
         legend.title = element_text(size = 9),
         legend.text = element_text(size = 8),
@@ -1212,7 +1241,7 @@ panel_b <- ggplot(varpart_data, aes(x = "", y = Value, fill = Component)) +
         legend.position = "right",
         legend.text = element_text(size = 8),
         legend.key.size = unit(0.4, "cm"),
-        plot.margin = margin(t = 5, r = 5, b = 5, l = 5)
+        plot.margin = ggplot2::margin(t = 5, r = 5, b = 5, l = 5)
     )
 
 # ============================================================
@@ -1308,7 +1337,7 @@ cat("Combining panels with adjusted widths...\n")
 # Save combined figure
 pdf("figures/Figure7_genome_metabolome.pdf", width = 14, height = 6)
 
-grid.arrange(
+gridExtra::grid.arrange(
     ggplotGrob(panel_a),
     ggplotGrob(panel_b),
     heatmap_grob[[4]],
@@ -1322,7 +1351,7 @@ cat("Saved: figures/Figure7_genome_metabolome.pdf\n")
 # Save PNG version
 png("figures/Figure7_genome_metabolome.png", width = 14, height = 6, units = "in", res = 300)
 
-grid.arrange(
+gridExtra::grid.arrange(
     ggplotGrob(panel_a),
     ggplotGrob(panel_b),
     heatmap_grob[[4]],
@@ -1348,12 +1377,12 @@ cat("Saved: figures/Figure7b_varpart.pdf/png\n")
 
 # Save heatmap separately
 pdf("figures/Figure7c_heatmap.pdf", width = 8, height = 8)
-grid.draw(heatmap_grob[[4]])
+grid::grid.draw(heatmap_grob[[4]])
 dev.off()
 cat("Saved: figures/Figure7c_heatmap.pdf\n")
 
 png("figures/Figure7c_heatmap.png", width = 8, height = 8, units = "in", res = 300)
-grid.draw(heatmap_grob[[4]])
+grid::grid.draw(heatmap_grob[[4]])
 dev.off()
 cat("Saved: figures/Figure7c_heatmap.png\n")
 

@@ -75,6 +75,10 @@ walk <- function(o, path, depth = 0L) {
     for (d in dimnames(o)) check_names(d, path, paste0(cls, " dimnames"))
   }
 
+  for (an in names(attributes(o)))
+    if (!an %in% c("names", "class", "row.names", "dim", "dimnames", "levels"))
+      try(walk(attr(o, an), paste0(path, "@attr:", an), depth + 1L), silent = TRUE)
+
   if (is.list(o)) {
     nms <- names(o)
     if (is.null(nms)) nms <- paste0("[[", seq_along(o), "]]")

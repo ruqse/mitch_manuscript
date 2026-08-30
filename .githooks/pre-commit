@@ -29,6 +29,7 @@ fi
 # --- Layer 2 ---------------------------------------------------------------
 if command -v Rscript >/dev/null 2>&1 && [ -f scripts/qa/scan_rda.R ]; then
   Rscript --vanilla scripts/qa/scan_rda.R || status=1
+  [ -f scripts/qa/scan_values.R ] && { Rscript --vanilla scripts/qa/scan_values.R || status=1; }
 else
   echo "  WARN: Rscript unavailable - layer 2 (deep object scan) skipped"
 fi
