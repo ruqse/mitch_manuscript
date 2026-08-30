@@ -22,14 +22,15 @@
 # "~ Group + vaginal pH + antibiotic + BV history + age") plus generic
 # identifiers. Cohort variables the article does not mention are guarded in the
 # private authoring repository's copy, so this public file does not enumerate them.
-# `group_bv` is deliberately NOT listed: it is a 0/1 coding of Group, and the
-# BV/Control label is published (Supplementary Data 3 / Table S4), so it
-# discloses nothing further. Listing it also false-positives on the published
-# ANCOM-BC2 column names log2FC_GroupBV and q_GroupBV.
 BANNED <- c("vaginal_ph", "ph_z", "age", "age_z", "antibiotic",
-            "bv_history", "sample_id", "base_sample_id",
+            "bv_history", "group_bv", "sample_id", "base_sample_id",
             "diagnosis", "personnummer", "dob", "date_of_birth",
             "ethnicity", "parity", "gravidity", "bmi", "hiv", "pregnan")
+
+# Published column names that legitimately embed a banned term. Exempting these
+# by name keeps `group_bv` in the denylist: an earlier revision dropped the term
+# instead, which let a real Group_BV column pass undetected.
+ALLOWED <- c("log2fc_groupbv", "q_groupbv")
 
 # `Group`/`BV_status` are intentionally allowed: BV status per sample is already
 # public via the article's Supplementary Data 3 / Table S4.
@@ -65,7 +66,8 @@ findings <- list()
 check_names <- function(nms, path, kind) {
   if (is.null(nms)) return(invisible(NULL))
   low <- tolower(trimws(nms))
-  hit <- nms[low %in% BANNED | grepl(BANNED_RE, low, perl = TRUE)]
+  hit <- nms[(low %in% BANNED | grepl(BANNED_RE, low, perl = TRUE)) &
+             !(low %in% ALLOWED)]
   if (length(hit)) {
     findings[[length(findings) + 1L]] <<-
       sprintf("  LEAK  %s  [%s] -> %s", path, kind, paste(unique(hit), collapse = ", "))

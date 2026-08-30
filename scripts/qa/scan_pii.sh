@@ -21,7 +21,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # Word-anchored so 'Age' does not match 'Average'/'page'. Aligned with the
 # BANNED list in scan_rda.R; Group_BV is excluded there and here because the
 # BV/Control label is published.
-BANNED='Vaginal[_ ]?pH|BV[_ ]?History|pH_z|Age_z|Base_Sample_ID|Sample_ID|(^|[^A-Za-z0-9_])(Age|Antibiotic)([^A-Za-z0-9_]|$)|personnummer|date_of_birth'
+BANNED='Vaginal[_ ]?pH|BV[_ ]?History|Group[_ ]BV|pH_z|Age_z|Base_Sample_ID|Sample_ID|(^|[^A-Za-z0-9_])(Age|Antibiotic)([^A-Za-z0-9_]|$)|personnummer|date_of_birth'
 # Secrets / credentials.
 # Accept ':' as well as '=': YAML config files write "API_KEY : value".
 SECRETS='BEGIN [A-Z ]*PRIVATE KEY|api[_-]?key[[:space:]]*[:=]|password[[:space:]]*[:=]|secret[[:space:]]*[:=]|token[[:space:]]*[:=][[:space:]]*[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}'
@@ -32,10 +32,11 @@ EMAILS='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 LOCALPATH='/Users/[a-zA-Z]|/home/[a-zA-Z]|C:\\\\Users|/crex/|/gorilla/|/proj/[a-z]|/sw/data/'
 
 # Scripts legitimately reference these column names in code; data files must not.
-# Markdown documentation names these variables in prose by design (legends,
-# README, controlled-access notes). The risk is tabular data, so .md is exempt
-# from the column-name check but still subject to the secret/path/email checks.
-CODE_EXEMPT='^scripts/.*\.(R|sh)$|\.md$|^\.gitignore$|^\.githooks/|^\.github/'
+# Two documentation files name these variables in prose by design. They are
+# exempt from the column-name check but still subject to the secret, path and
+# address checks. The exemption is deliberately NOT `\.md$`: a markdown pipe
+# table is a normal way to ship tabular data and must stay in scope.
+CODE_EXEMPT='^scripts/.*\.(R|sh)$|^README\.md$|^supplementary_tables/Supplementary_Table_Legends\.md$|^\.gitignore$|^\.githooks/|^\.github/'
 # The QA tooling and the hook contain these patterns as literals by design, so
 # they are exempt from the secret / path / email checks (not from BANNED).
 SELF_EXEMPT='^scripts/qa/|^\.githooks/'
