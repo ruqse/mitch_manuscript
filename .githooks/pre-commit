@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# ---------------------------------------------------------------------------
+# QA LAYER 3 - pre-commit gate
+#
+# Blocks any commit that would publish participant-level data.
+# Enable once per clone:   git config core.hooksPath .githooks
+# ---------------------------------------------------------------------------
+set -uo pipefail
+root="$(git rev-parse --show-toplevel)"; cd "$root" || exit 1
+
+echo "pre-commit: privacy gate"
+status=0
+
+# --- Hard denylist: these paths must never be staged ----------------------
+DENY='metadata/sample_metadata\.rda$|objects/genome_metabolome_results\.rda$|MatchMetaData'
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+blocked=$(printf '%s\n' "$staged" | grep -E "$DENY" || true)
+if [ -n "$blocked" ]; then
+  echo "BLOCKED - participant-level file(s) staged:"
+  printf '  %s\n' $blocked
+  status=1
+fi
+
+# --- Layer 1 ---------------------------------------------------------------
+if [ -x scripts/qa/scan_pii.sh ]; then
+  bash scripts/qa/scan_pii.sh || status=1
+fi
+
+# --- Layer 2 ---------------------------------------------------------------
+if command -v Rscript >/dev/null 2>&1 && [ -f scripts/qa/scan_rda.R ]; then
+  Rscript --vanilla scripts/qa/scan_rda.R || status=1
+else
+  echo "  WARN: Rscript unavailable - layer 2 (deep object scan) skipped"
+fi
+
+if [ "$status" -ne 0 ]; then
+  cat <<'MSG'
+
+Commit rejected by the privacy gate.
+
+If a finding is a false positive, fix the scanner rather than bypassing it.
+--no-verify defeats this hook, but the same checks run in CI on push.
+MSG
+  exit 1
+fi
+echo "pre-commit: PASS"
+exit 0

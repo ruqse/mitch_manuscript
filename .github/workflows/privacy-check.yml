@@ -1,0 +1,40 @@
+name: privacy-check
+
+# QA LAYER 4 - re-runs the privacy scanners on every push and pull request, so
+# the guarantee survives a local `git commit --no-verify`.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Layer 1 - static text scan
+        run: bash scripts/qa/scan_pii.sh
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+
+      - name: Install openxlsx (for xlsx header scanning)
+        run: Rscript -e 'install.packages("openxlsx", repos = "https://cloud.r-project.org")'
+
+      - name: Layer 2 - deep binary object scan
+        run: Rscript scripts/qa/scan_rda.R --all
+
+      - name: Assert participant-level files are absent from the tree
+        run: |
+          set -e
+          fail=0
+          for f in metadata/sample_metadata.rda \
+                   objects/genome_metabolome_results.rda \
+                   data/MatchMetaData.SeqMetaDATA.xlsx; do
+            if [ -e "$f" ]; then echo "PRESENT IN REPO: $f"; fail=1; fi
+          done
+          [ "$fail" -eq 0 ] && echo "PASS - no participant-level files in the published tree."
+          exit $fail
