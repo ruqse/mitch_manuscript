@@ -1,7 +1,6 @@
-# MitCH: multi-omics analysis of bacterial vaginosis
+# MiTCH: Microbiome of ITCHing
 
-Analysis code and processed data for the MitCH study of bacterial vaginosis (BV)
-in a Swedish cohort.
+Analysis code and processed data for the MiTCH study of bacterial vaginosis (BV).
 
 ## Publication
 
@@ -221,7 +220,7 @@ participants before enrolment and sample collection.
 ## Citation
 
 ```bibtex
-@article{Shabana2026MitCH,
+@article{Shabana2026MiTCH,
   author  = {Shabana, Hana and Dube, Faruk and Lahtinen, Emilia and
              Bergman R{\o}the, Emelie and Engstrand, Lars and
              Warchavchik Hugerth, Luisa and Schuppe-Koistinen, Ina and

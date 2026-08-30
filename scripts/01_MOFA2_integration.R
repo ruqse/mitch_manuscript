@@ -1,5 +1,5 @@
 # ===================================================================
-# MitCH Study: MOFA2 Multi-Omics Factor Analysis
+# MiTCH Study: MOFA2 Multi-Omics Factor Analysis
 # ===================================================================
 #
 # Purpose:

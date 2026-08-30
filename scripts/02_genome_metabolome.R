@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # ============================================================================
-# MitCH Study: Gardnerella Genome-Metabolome Integration and Figure 7
+# MiTCH Study: Gardnerella Genome-Metabolome Integration and Figure 7
 # ============================================================================
 #
 # Purpose:

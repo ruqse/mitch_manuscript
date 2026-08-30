@@ -1,6 +1,6 @@
 # ============================================================================
 # 00_data_processing_and_DIABLO.R
-# Title: MitCH Study: Data Processing, Differential Abundance, and DIABLO Integration
+# Title: MiTCH Study: Data Processing, Differential Abundance, and DIABLO Integration
 #
 # Purpose:
 #   Processes raw sequencing + metabolomics data into multi-omics objects for
