@@ -21,15 +21,15 @@ genome (MAG) analysis, integrated with DIABLO and MOFA2.
 
 ## Data availability
 
-| Data                                | Location                                                                |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| Raw sequencing reads                | ENA[PRJEB108308](https://www.ebi.ac.uk/ena/browser/view/PRJEB108308)     |
-| Supplementary Data 1-4              | Zenodo[10.5281/zenodo.20734655](https://doi.org/10.5281/zenodo.20734655) |
-| Supplementary Tables S1-S13         | `supplementary_tables/`                                               |
-| Figures 1-7, S1                     | `figures/`                                                            |
-| Processed omics matrices            | `objects/multiomics_views.rda`                                        |
-| Sample group labels                 | `metadata/sample_metadata_public.rda`                                 |
-| Individual-level clinical variables | Controlled access (see below)                                           |
+| Data                                | Location                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| Raw sequencing reads                | ENA: [PRJEB108308](https://www.ebi.ac.uk/ena/browser/view/PRJEB108308)   |
+| Supplementary Data 1-4              | Zenodo:[10.5281/zenodo.20734655](https://doi.org/10.5281/zenodo.20734655) |
+| Supplementary Tables S1-S13         | `supplementary_tables/`                                                |
+| Figures 1-7, S1                     | `figures/`                                                             |
+| Processed omics matrices            | `objects/multiomics_views.rda`                                         |
+| Sample group labels                 | `metadata/sample_metadata_public.rda`                                  |
+| Individual-level clinical variables | Controlled access (see below)                                            |
 
 **Zenodo contents.** Supplementary Data 1, the targeted LC-MS panel, is the assay
 *method*: 191 compounds with retention times, MRM transitions and database
